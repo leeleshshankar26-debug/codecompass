@@ -1,0 +1,133 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base reset ───────────────────────────────────────────── */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    @apply antialiased;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-surface-900 text-zinc-100 font-sans;
+    min-height: 100vh;
+  }
+
+  .light body {
+    @apply bg-zinc-50 text-zinc-900;
+  }
+
+  /* Focus ring */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-surface-900;
+  }
+
+  .light :focus-visible {
+    @apply ring-offset-white;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-400 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-300;
+  }
+}
+
+/* ── Component utilities ─────────────────────────────────── */
+@layer components {
+  .card {
+    @apply rounded-xl border border-surface-500 bg-surface-800 p-4;
+  }
+
+  .light .card {
+    @apply border-zinc-200 bg-white;
+  }
+
+  .input-base {
+    @apply w-full rounded-lg border border-surface-400 bg-surface-700
+           px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500
+           focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500
+           transition-colors;
+  }
+
+  .light .input-base {
+    @apply border-zinc-300 bg-white text-zinc-900 placeholder-zinc-400;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white
+           hover:bg-brand-500 active:bg-brand-700
+           focus-visible:ring-2 focus-visible:ring-brand-400
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-colors;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-lg border border-surface-400 bg-surface-700 px-4 py-2
+           text-sm font-medium text-zinc-200
+           hover:bg-surface-600 hover:border-surface-300
+           focus-visible:ring-2 focus-visible:ring-brand-400
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-colors;
+  }
+
+  .light .btn-secondary {
+    @apply border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 hover:border-zinc-400;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white
+           hover:bg-red-500 active:bg-red-700
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-colors;
+  }
+
+  /* Chat message bubbles */
+  .chat-user {
+    @apply bg-brand-600 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[85%] text-sm leading-relaxed;
+  }
+
+  .chat-assistant {
+    @apply bg-surface-700 text-zinc-100 rounded-2xl rounded-tl-sm px-4 py-2.5 max-w-[90%] text-sm leading-relaxed;
+  }
+
+  .light .chat-assistant {
+    @apply bg-zinc-100 text-zinc-900;
+  }
+
+  /* Code blocks inside chat */
+  .chat-assistant pre {
+    @apply mt-2 mb-2 rounded-lg bg-surface-900 p-3 text-xs overflow-x-auto font-mono;
+  }
+
+  .light .chat-assistant pre {
+    @apply bg-zinc-900 text-zinc-100;
+  }
+}
+
+/* ── Monaco editor dark theme override ──────────────────── */
+.monaco-editor-container {
+  border-radius: 0.5rem;
+  overflow: hidden;
+}

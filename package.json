@@ -1,0 +1,18 @@
+{
+  "name": "codecompass",
+  "version": "1.0.0",
+  "description": "CodeCompass monorepo — Socratic AI Code Tutor",
+  "private": true,
+  "scripts": {
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build:backend": "npm run build --prefix backend",
+    "build:frontend": "npm run build --prefix frontend",
+    "test:backend": "npm run test --prefix backend",
+    "type-check:frontend": "npm run type-check --prefix frontend",
+    "install:all": "npm install --prefix backend && npm install --prefix frontend",
+    "prisma:generate": "npm run prisma:generate --prefix backend",
+    "prisma:migrate:dev": "npm run prisma:migrate:dev --prefix backend",
+    "prisma:migrate": "npm run prisma:migrate --prefix backend"
+  }
+}

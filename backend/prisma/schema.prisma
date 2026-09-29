@@ -1,0 +1,69 @@
+// CodeCompass Prisma Schema
+// Supabase PostgreSQL + Prisma ORM
+//
+// How Supabase Auth relates to app data:
+//   - Supabase manages users in the `auth.users` table (internal, not in this schema).
+//   - Each LearningSession and other records store `userId` which is the UUID
+//     from `auth.users.id` (verified by the backend JWT middleware before write).
+//   - There is NO separate User table here — Supabase Auth IS the user store.
+//   - The backend validates the Supabase JWT on every request and extracts the
+//     verified userId before any DB operation.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model LearningSession {
+  id          String   @id @default(uuid())
+  userId      String   // Supabase auth.users.id
+  title       String   @default("New Session")
+  language    String   @default("python") // python | javascript | java | cpp
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  messages    ChatMessage[]
+  codeState   CodeState?
+
+  @@index([userId])
+  @@index([userId, updatedAt])
+}
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  sessionId  String
+  role       String   // "user" | "assistant"
+  content    String
+  createdAt  DateTime @default(now())
+
+  session    LearningSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([sessionId, createdAt])
+}
+
+model CodeState {
+  id           String   @id @default(uuid())
+  sessionId    String   @unique
+  code         String   @default("")
+  language     String   @default("python")
+  stdin        String   @default("")
+  updatedAt    DateTime @updatedAt
+
+  // Most recent execution result (denormalized for quick access)
+  lastExecStatus   String?  // "Accepted" | "Wrong Answer" | "Runtime Error" etc.
+  lastExecOutput   String?
+  lastExecStderr   String?
+  lastExecTime     String?
+  lastExecMemory   String?
+  lastExecAt       DateTime?
+
+  session      LearningSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
