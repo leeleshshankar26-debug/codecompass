@@ -21,8 +21,6 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-
 const LANG_COLORS: Record<Language, string> = {
   python: 'bg-blue-500/20 text-blue-300',
   javascript: 'bg-yellow-500/20 text-yellow-300',
@@ -122,7 +120,7 @@ function DashboardContent() {
   const handleCreate = async (language: Language) => {
     try {
       const session = await createSession(language);
-      router.push(`${basePath}/tutor/?session=${session.id}`);
+      router.push(`/tutor/?session=${session.id}`);
     } catch (err: unknown) {
       setError((err as Error).message ?? 'Failed to create session');
       setShowNewModal(false);
@@ -235,7 +233,7 @@ function DashboardContent() {
                         )}
                       </button>
                       <Link
-                        href={`${basePath}/tutor/?session=${session.id}`}
+                        href={`/tutor/?session=${session.id}`}
                         aria-label={`Open session: ${session.title}`}
                         className="btn-secondary px-3 py-1.5 text-xs"
                       >

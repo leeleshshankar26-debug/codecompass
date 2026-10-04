@@ -8,8 +8,6 @@ import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Compass, Eye, EyeOff } from 'lucide-react';
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-
 export default function LoginPage() {
   const { signIn, user, loading } = useAuth();
   const router = useRouter();
@@ -23,7 +21,7 @@ export default function LoginPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (!loading && user) {
-      router.replace(`${basePath}/dashboard/`);
+      router.replace('/dashboard/');
     }
   }, [user, loading, router]);
 
@@ -34,7 +32,7 @@ export default function LoginPage() {
 
     try {
       await signIn(email.trim(), password);
-      router.push(`${basePath}/dashboard/`);
+      router.push('/dashboard/');
     } catch (err: unknown) {
       const authError = err as { message?: string };
       setError(authError.message ?? 'Sign in failed. Check your email and password.');
@@ -137,7 +135,7 @@ export default function LoginPage() {
           <p className="text-center text-sm text-zinc-400">
             Don&apos;t have an account?{' '}
             <Link
-              href={`${basePath}/register/`}
+              href="/register/"
               className="text-brand-400 hover:text-brand-300 font-medium transition-colors"
             >
               Create one free

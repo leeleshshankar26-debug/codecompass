@@ -1,8 +1,6 @@
 import Link from 'next/link';
 import { Compass } from 'lucide-react';
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-
 export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-surface-900 px-4 text-center">
@@ -11,7 +9,7 @@ export default function NotFound() {
       <p className="mb-6 text-zinc-400">
         This page doesn&apos;t exist. You may have followed a broken link.
       </p>
-      <Link href={`${basePath}/`} className="btn-primary">
+      <Link href="/" className="btn-primary">
         Back to home
       </Link>
     </div>

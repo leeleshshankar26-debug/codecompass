@@ -7,8 +7,6 @@ import { ProtectedRoute } from '@/components/ui/ProtectedRoute';
 import { Navbar } from '@/components/ui/Navbar';
 import { Sun, Moon, LogOut, User, Shield } from 'lucide-react';
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-
 function SettingsContent() {
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -16,7 +14,7 @@ function SettingsContent() {
 
   const handleSignOut = async () => {
     await signOut();
-    router.push(`${basePath}/`);
+    router.push('/');
   };
 
   return (

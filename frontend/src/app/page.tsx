@@ -13,8 +13,6 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-
 const features = [
   {
     icon: Brain,
@@ -87,15 +85,15 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             {user ? (
-              <Link href={`${basePath}/dashboard/`} className="btn-primary px-6 py-3 text-base">
+              <Link href="/dashboard/" className="btn-primary px-6 py-3 text-base">
                 Go to Dashboard <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
             ) : (
               <>
-                <Link href={`${basePath}/register/`} className="btn-primary px-6 py-3 text-base">
+                <Link href={`/register/`} className="btn-primary px-6 py-3 text-base">
                   Start learning for free <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
-                <Link href={`${basePath}/login/`} className="btn-secondary px-6 py-3 text-base">
+                <Link href={`/login/`} className="btn-secondary px-6 py-3 text-base">
                   Sign in
                 </Link>
               </>
@@ -146,7 +144,7 @@ export default function LandingPage() {
 
           <div className="mt-10">
             {!user && (
-              <Link href={`${basePath}/register/`} className="btn-primary px-8 py-3 text-base">
+              <Link href="/register/" className="btn-primary px-8 py-3 text-base">
                 Create your free account <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
             )}

@@ -18,8 +18,6 @@ import type { LearningSession, Language, ExecutionResult } from '@/types';
 import { Play, ChevronDown, Code2, MessageSquare, PanelLeftClose, PanelRightClose } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-
 // Autosave debounce delay in milliseconds
 const AUTOSAVE_DELAY = 1500;
 
@@ -52,7 +50,7 @@ function TutorContent() {
   // ── Load session ────────────────────────────────────────────
   useEffect(() => {
     if (!sessionId) {
-      router.replace(`${basePath}/dashboard/`);
+      router.replace('/dashboard/');
       return;
     }
 

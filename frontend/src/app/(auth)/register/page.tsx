@@ -8,8 +8,6 @@ import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Compass, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-
 export default function RegisterPage() {
   const { signUp, user, loading } = useAuth();
   const router = useRouter();
@@ -24,7 +22,7 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace(`${basePath}/dashboard/`);
+      router.replace('/dashboard/');
     }
   }, [user, loading, router]);
 
@@ -85,7 +83,7 @@ export default function RegisterPage() {
                 Click it to activate your account, then sign in.
               </p>
             </div>
-            <Link href={`${basePath}/login/`} className="btn-primary mt-2">
+            <Link href="/login/" className="btn-primary mt-2">
               Go to sign in
             </Link>
           </div>
@@ -190,7 +188,7 @@ export default function RegisterPage() {
             <p className="text-center text-sm text-zinc-400">
               Already have an account?{' '}
               <Link
-                href={`${basePath}/login/`}
+                href="/login/"
                 className="text-brand-400 hover:text-brand-300 font-medium transition-colors"
               >
                 Sign in

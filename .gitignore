@@ -38,6 +38,8 @@ backend/prisma/dev.db-journal
 # ── Test coverage ─────────────────────────────────────────────
 coverage/
 
-# ── Misc ──────────────────────────────────────────────────────
+# ── Next.js build artifacts ───────────────────────────────────
+frontend/next-env.d.ts
+
 .vercel
 *.tsbuildinfo

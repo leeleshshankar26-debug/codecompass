@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 
 export function Navbar() {
   const { user, signOut } = useAuth();
@@ -28,13 +28,13 @@ export function Navbar() {
 
   const handleSignOut = async () => {
     await signOut();
-    router.push(`${basePath}/`);
+    router.push('/');
   };
 
   const navLinks = user
     ? [
-        { href: `${basePath}/dashboard/`, label: 'Dashboard', icon: LayoutDashboard },
-        { href: `${basePath}/settings/`, label: 'Settings', icon: Settings },
+        { href: '/dashboard/', label: 'Dashboard', icon: LayoutDashboard },
+        { href: '/settings/', label: 'Settings', icon: Settings },
       ]
     : [];
 
@@ -43,7 +43,7 @@ export function Navbar() {
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         {/* Logo */}
         <Link
-          href={`${basePath}/`}
+          href="/"
           className="flex items-center gap-2 text-brand-400 hover:text-brand-300 transition-colors"
         >
           <Compass className="h-6 w-6" aria-hidden="true" />
@@ -60,9 +60,9 @@ export function Navbar() {
               href={href}
               className={cn(
                 'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                pathname.startsWith(href.replace(basePath, ''))
-                  ? 'bg-brand-600/20 text-brand-300'
-                  : 'text-zinc-400 hover:text-zinc-100 hover:bg-surface-600'
+                pathname.startsWith(href)
+                 ? 'bg-brand-600/20 text-brand-300'
+                  : 'text-zinc-400 hover:text-zinc-100 hover:bg-surface-700'
               )}
             >
               <Icon className="h-4 w-4" aria-hidden="true" />
@@ -116,7 +116,7 @@ export function Navbar() {
               onClick={() => setMenuOpen(false)}
               className={cn(
                 'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                pathname.startsWith(href.replace(basePath, ''))
+                pathname.startsWith(href)
                   ? 'bg-brand-600/20 text-brand-300'
                   : 'text-zinc-400 hover:text-zinc-100 hover:bg-surface-600'
               )}
