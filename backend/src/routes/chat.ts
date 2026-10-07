@@ -44,7 +44,13 @@ chatRouter.post(
     .isArray({ min: 1, max: 50 })
     .withMessage('messages must be an array of 1-50 items'),
   body('messages.*.role').isIn(['user', 'assistant']),
-  body('messages.*.content').isString().isLength({ max: 8000 }),
+  body('messages.*.content')
+    .isString()
+    .withMessage('messages[].content must be a string')
+    .notEmpty()
+    .withMessage('messages[].content must not be empty')
+    .isLength({ max: 8000 })
+    .withMessage('messages[].content must be 8000 characters or fewer'),
   body('language').optional().isIn(['python', 'javascript', 'java', 'cpp']),
   body('code').optional().isString().isLength({ max: 32000 }),
   body('executionOutput').optional().isString().isLength({ max: 4000 }),

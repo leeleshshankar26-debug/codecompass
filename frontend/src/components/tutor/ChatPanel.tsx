@@ -89,6 +89,21 @@ export function ChatPanel({
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
+  /**
+   * Extract plain text from an AI SDK 5 UIMessage.
+   * UIMessage stores content in parts[].text — there is no top-level
+   * .content string. The backend expects { role, content: string }.
+   */
+  function uiMessageToContent(msg: UIMessage): string {
+    for (const part of msg.parts ?? []) {
+      if (part.type === 'text' && 'text' in part) {
+        const text = (part as { type: 'text'; text: string }).text;
+        if (text) return text;
+      }
+    }
+    return '';
+  }
+
   // Build initial UIMessages from DB history
   const seed: UIMessage[] = initialMessages.map((m, i) => ({
     id: m.id ?? `init-${i}`,
@@ -117,6 +132,33 @@ export function ChatPanel({
               .join('\n')
               .substring(0, 2000)
           : '',
+      },
+      /**
+       * Transform UIMessage[] → Array<{role, content}> before the HTTP call.
+       *
+       * AI SDK 5 UIMessage stores text in parts[].text — there is no
+       * top-level .content property. The backend validator checks
+       * messages[].content (a plain string), so sending raw UIMessage[]
+       * causes every message to fail with "Invalid value".
+       *
+       * We filter out any message whose content resolved to an empty
+       * string (e.g. in-flight assistant streaming placeholders) to keep
+       * the payload valid.
+       */
+      prepareSendMessagesRequest: ({ messages: uiMessages, body: extraBody }) => {
+        const normalised = uiMessages
+          .map((m) => ({
+            role: m.role as 'user' | 'assistant',
+            content: uiMessageToContent(m),
+          }))
+          .filter((m) => m.content.length > 0);
+
+        return {
+          body: {
+            ...(extraBody ?? {}),
+            messages: normalised,
+          },
+        };
       },
     }),
     id: sessionId,
