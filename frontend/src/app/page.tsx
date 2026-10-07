@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Navbar } from '@/components/ui/Navbar';
 import {
@@ -48,7 +50,49 @@ const benefits = [
 ];
 
 export default function LandingPage() {
-  const { user } = useAuth();
+  const { user, recoveryMode } = useAuth();
+  const router = useRouter();
+
+  // ── Recovery routing ──────────────────────────────────────────
+  //
+  // Supabase password-reset emails point to the configured Site URL, which
+  // is typically the homepage. The recovery token arrives in one of two ways:
+  //
+  // Path A — hash still present when useEffect runs:
+  //   Supabase has NOT yet exchanged the token.
+  //   We read window.location.hash, detect "type=recovery", and navigate to
+  //   /reset-password/ with the hash appended so Supabase can exchange it there.
+  //
+  // Path B — Supabase consumed the hash before useEffect ran:
+  //   The Supabase client initialises at module-evaluation time (when supabase.ts
+  //   is imported), which is before any useEffect fires. If the exchange completes
+  //   before our effect runs, window.location.hash is already empty or cleared,
+  //   but AuthProvider's onAuthStateChange fires PASSWORD_RECOVERY and sets
+  //   recoveryMode:true in context.
+  //   We watch recoveryMode and redirect when it becomes true.
+  //
+  // Both paths lead to /reset-password/ where the actual form lives.
+
+  // Path A — hash-based redirect
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash;
+    if (hash.includes('type=recovery')) {
+      // Forward the entire hash so Supabase can exchange it on the reset page.
+      // Use router.replace so the user cannot go "back" to the hash URL.
+      router.replace(`/reset-password/${hash}`);
+    }
+  }, [router]);
+
+  // Path B — recoveryMode-based redirect (hash already consumed by Supabase)
+  useEffect(() => {
+    if (recoveryMode) {
+      // AuthProvider already exchanged the token and set recoveryMode:true.
+      // Send the user to the reset form. No hash needed — the Supabase
+      // session is already established.
+      router.replace('/reset-password/');
+    }
+  }, [recoveryMode, router]);
 
   return (
     <div className="min-h-screen bg-surface-900 dark:bg-surface-900">
@@ -90,10 +134,10 @@ export default function LandingPage() {
               </Link>
             ) : (
               <>
-                <Link href={`/register/`} className="btn-primary px-6 py-3 text-base">
+                <Link href="/register/" className="btn-primary px-6 py-3 text-base">
                   Start learning for free <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
-                <Link href={`/login/`} className="btn-secondary px-6 py-3 text-base">
+                <Link href="/login/" className="btn-secondary px-6 py-3 text-base">
                   Sign in
                 </Link>
               </>

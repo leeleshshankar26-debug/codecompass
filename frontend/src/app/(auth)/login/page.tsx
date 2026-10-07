@@ -9,7 +9,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Compass, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
-  const { signIn, user, loading } = useAuth();
+  const { signIn, user, loading, recoveryMode } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -18,12 +18,23 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Redirect if already logged in
+  // Redirect already-authenticated, non-recovery users to dashboard.
+  //
+  // Guard: do NOT redirect when recoveryMode is true. A PASSWORD_RECOVERY
+  // session sets user non-null but the user intends to reset their password,
+  // not use the app normally. cancelRecovery() / the reset page handles
+  // clearing recoveryMode before sending the user here, so by the time
+  // this effect runs recoveryMode should be false for intentional navigations.
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && user && !recoveryMode) {
       router.replace('/dashboard/');
     }
-  }, [user, loading, router]);
+  }, [user, loading, recoveryMode, router]);
+
+  // NOTE: We intentionally do NOT add a second effect that redirects
+  // recoveryMode users to /reset-password/. That would create a loop when
+  // cancel/sign-in navigates here. cancelRecovery() clears the flag before
+  // navigating, so recoveryMode will be false when this page renders.
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,12 +94,21 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label
-                htmlFor="password"
-                className="mb-1.5 block text-sm font-medium text-zinc-300"
-              >
-                Password
-              </label>
+              {/* Password label row — label left, forgot link right */}
+              <div className="mb-1.5 flex items-center justify-between">
+                <label
+                  htmlFor="password"
+                  className="text-sm font-medium text-zinc-300"
+                >
+                  Password
+                </label>
+                <Link
+                  href="/forgot-password/"
+                  className="text-xs text-brand-400 hover:text-brand-300 transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   id="password"
