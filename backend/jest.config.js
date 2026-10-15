@@ -6,16 +6,15 @@ module.exports = {
   testMatch: ['**/*.test.ts'],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: {
-        module: 'commonjs',
-      }
+      tsconfig: './tsconfig.test.json',
     }]
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   collectCoverageFrom: ['src/**/*.ts'],
   // setup.ts populates process.env BEFORE any module is required
   setupFiles: ['<rootDir>/tests/setup.ts'],
-  setupFilesAfterEnv: [],
+  // setupMocks.ts registers jest.mock() calls AFTER the test framework loads
+  setupFilesAfterEnv: ['<rootDir>/tests/setupMocks.ts'],
   // Force exit after tests complete (prevents hanging on open DB connections etc.)
   forceExit: true,
   // Don't reset module registry between test files — app module stays cached

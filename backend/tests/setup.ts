@@ -1,6 +1,6 @@
 /**
- * Jest global setup file.
- * Sets NODE_ENV and dummy env vars before any test module is imported.
+ * Jest setupFiles entry — runs BEFORE the test framework is installed.
+ * Only set environment variables here; jest.mock() is NOT available yet.
  * Real credentials are NOT needed — tests verify HTTP-level auth rejection
  * without connecting to Supabase, Prisma, or external services.
  */
