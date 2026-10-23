@@ -106,21 +106,33 @@ executeRouter.post(
 
     try {
       // ── Step 1: Submit (no wait=true — returns a token immediately) ──
+      // Note: enable_network is a self-hosted-only flag; omit it for hosted instances
+      // to avoid potential rejection.
+      const submissionBody: Record<string, unknown> = {
+        source_code:     Buffer.from(code).toString('base64'),
+        language_id:     languageId,
+        stdin:           Buffer.from(stdin).toString('base64'),
+        cpu_time_limit:  EXECUTION_LIMITS.cpuTime,
+        memory_limit:    EXECUTION_LIMITS.memory,
+      };
+      // Only send enable_network when using a self-hosted instance that supports it
+      if (!useRapidApi && process.env.JUDGE0_DISABLE_NETWORK !== 'false') {
+        submissionBody.enable_network = false;
+      }
+
+      console.log(`[Execute] Submitting to Judge0: ${judge0Url} language=${language} (id=${languageId}) rapidapi=${useRapidApi}`);
+
       const submitRes = await axios.post(
         `${judge0Url}/submissions?base64_encoded=true`,
-        {
-          source_code:     Buffer.from(code).toString('base64'),
-          language_id:     languageId,
-          stdin:           Buffer.from(stdin).toString('base64'),
-          cpu_time_limit:  EXECUTION_LIMITS.cpuTime,
-          memory_limit:    EXECUTION_LIMITS.memory,
-          enable_network:  false,
-        },
+        submissionBody,
         { headers, timeout: 10000 }, // 10s just for the submit call
       );
 
+      console.log(`[Execute] Submit response status=${submitRes.status} token=${submitRes.data?.token ?? 'MISSING'}`);
+
       const token: string = submitRes.data?.token;
       if (!token) {
+        console.error('[Execute] No token in submit response:', JSON.stringify(submitRes.data));
         res.status(502).json({ error: 'Judge0 did not return a submission token' });
         return;
       }
@@ -137,6 +149,8 @@ executeRouter.post(
 
         const data = pollRes.data as Record<string, unknown>;
         const statusId = (data.status as { id?: number } | undefined)?.id ?? 0;
+        const statusDesc = (data.status as { description?: string } | undefined)?.description ?? 'unknown';
+        console.log(`[Execute] Poll attempt=${attempt + 1} statusId=${statusId} status="${statusDesc}"`);
 
         if (!PENDING_STATUS_IDS.has(statusId)) {
           // Terminal status — return immediately, no extra sleep
@@ -199,8 +213,8 @@ executeRouter.post(
       });
 
     } catch (err: unknown) {
-      const error = err as Error & { response?: { status?: number }; code?: string };
-      console.error('[Execute] Judge0 error:', error.message);
+      const error = err as Error & { response?: { status?: number; data?: unknown }; code?: string };
+      console.error(`[Execute] Judge0 error: code=${error.code} message=${error.message} httpStatus=${error.response?.status ?? 'none'} body=${JSON.stringify(error.response?.data ?? null)}`);
 
       if (axios.isAxiosError(error)) {
         if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
@@ -211,8 +225,8 @@ executeRouter.post(
           res.status(429).json({ error: 'Execution rate limit exceeded. Please wait a moment.' });
           return;
         }
-        if (error.response?.status === 401) {
-          res.status(502).json({ error: 'Judge0 authentication failed. Check JUDGE0_API_KEY.' });
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          res.status(502).json({ error: 'Judge0 authentication failed. Check JUDGE0_API_KEY and JUDGE0_API_URL in your environment variables.' });
           return;
         }
       }
