@@ -10,21 +10,38 @@ export const executeRouter = Router();
 executeRouter.use(requireAuth);
 
 // ── Judge0 language IDs ───────────────────────────────────────
-// These IDs are for Judge0 CE (Community Edition)
 const JUDGE0_LANGUAGE_IDS: Record<string, number> = {
-  python: 71,      // Python 3.8
+  python:     71,  // Python 3.8
   javascript: 63,  // Node.js 12
-  java: 62,        // Java 13
-  cpp: 54,         // C++ 17
+  java:       62,  // Java 13
+  cpp:        54,  // C++ 17
 };
 
 // ── Execution limits ──────────────────────────────────────────
 const EXECUTION_LIMITS = {
-  time: 10,          // seconds
-  memory: 128000,    // KB (128 MB)
+  cpuTime:     5,      // seconds — reduced from 10
+  memory:      128000, // KB (128 MB)
   maxCodeSize: 64000,
   maxStdinSize: 4096,
   maxOutputSize: 4096,
+};
+
+// ── Polling config ────────────────────────────────────────────
+const POLL_INTERVAL_MS  = 800;   // wait 800ms between polls
+const POLL_MAX_ATTEMPTS = 15;    // max 15 polls = ~12s total before giving up
+// Judge0 status IDs that mean "still running"
+const PENDING_STATUS_IDS = new Set([1, 2]); // 1 = In Queue, 2 = Processing
+
+// ── Helpers ───────────────────────────────────────────────────
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const decode = (b64: string | null | undefined, limit: number): string => {
+  if (!b64) return '';
+  try {
+    return Buffer.from(b64, 'base64').toString('utf-8').substring(0, limit);
+  } catch {
+    return '';
+  }
 };
 
 // ── POST /api/execute/:sessionId ──────────────────────────────
@@ -50,7 +67,6 @@ executeRouter.post(
       return;
     }
 
-    // express-validator has confirmed this is a UUID string
     const sessionId = req.params['sessionId'] as string;
 
     // Ownership check
@@ -75,94 +91,110 @@ executeRouter.post(
     };
 
     const languageId = JUDGE0_LANGUAGE_IDS[language];
-    const judge0Url = process.env.JUDGE0_API_URL!;
+    const judge0Url  = process.env.JUDGE0_API_URL!;
     const useRapidApi = process.env.JUDGE0_USE_RAPIDAPI === 'true';
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
     if (useRapidApi && process.env.JUDGE0_API_KEY) {
-      headers['X-RapidAPI-Key'] = process.env.JUDGE0_API_KEY;
+      headers['X-RapidAPI-Key']  = process.env.JUDGE0_API_KEY;
       headers['X-RapidAPI-Host'] = new URL(judge0Url).hostname;
     }
 
     try {
-      // Submit code to Judge0 — NEVER execute student code on this server
+      // ── Step 1: Submit (no wait=true — returns a token immediately) ──
       const submitRes = await axios.post(
-        `${judge0Url}/submissions?base64_encoded=true&wait=true`,
+        `${judge0Url}/submissions?base64_encoded=true`,
         {
-          source_code: Buffer.from(code).toString('base64'),
-          language_id: languageId,
-          stdin: Buffer.from(stdin).toString('base64'),
-          cpu_time_limit: EXECUTION_LIMITS.time,
-          memory_limit: EXECUTION_LIMITS.memory,
-          // Request that Judge0 block network access (supported in self-hosted CE)
-          enable_network: false,
+          source_code:     Buffer.from(code).toString('base64'),
+          language_id:     languageId,
+          stdin:           Buffer.from(stdin).toString('base64'),
+          cpu_time_limit:  EXECUTION_LIMITS.cpuTime,
+          memory_limit:    EXECUTION_LIMITS.memory,
+          enable_network:  false,
         },
-        {
-          headers,
-          timeout: 30000, // 30s HTTP timeout
-        }
+        { headers, timeout: 10000 }, // 10s just for the submit call
       );
 
-      const result = submitRes.data;
-
-      // Decode base64 outputs safely
-      const decode = (b64: string | null | undefined): string => {
-        if (!b64) return '';
-        try {
-          return Buffer.from(b64, 'base64').toString('utf-8').substring(0, EXECUTION_LIMITS.maxOutputSize);
-        } catch {
-          return '';
-        }
-      };
-
-      const stdout = decode(result.stdout);
-      const stderr = decode(result.stderr);
-      const compileOutput = decode(result.compile_output);
-      const statusDesc: string = result.status?.description || 'Unknown';
-      const execTime: string = result.time ? `${result.time}s` : '';
-      const execMemory: string = result.memory ? `${result.memory} KB` : '';
-
-      // Persist execution result to codeState
-      try {
-        await prisma.codeState.upsert({
-          where: { sessionId },
-          update: {
-            lastExecStatus: statusDesc,
-            lastExecOutput: stdout || compileOutput,
-            lastExecStderr: stderr,
-            lastExecTime: execTime,
-            lastExecMemory: execMemory,
-            lastExecAt: new Date(),
-          },
-          create: {
-            sessionId,
-            code,
-            language,
-            lastExecStatus: statusDesc,
-            lastExecOutput: stdout || compileOutput,
-            lastExecStderr: stderr,
-            lastExecTime: execTime,
-            lastExecMemory: execMemory,
-            lastExecAt: new Date(),
-          },
-        });
-      } catch (dbErr) {
-        console.error('[Execute] DB persist error:', dbErr);
+      const token: string = submitRes.data?.token;
+      if (!token) {
+        res.status(502).json({ error: 'Judge0 did not return a submission token' });
+        return;
       }
 
+      // ── Step 2: Poll until done ───────────────────────────────
+      let result: Record<string, unknown> | null = null;
+
+      for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
+        await sleep(POLL_INTERVAL_MS);
+
+        const pollRes = await axios.get(
+          `${judge0Url}/submissions/${token}?base64_encoded=true`,
+          { headers, timeout: 8000 },
+        );
+
+        const data = pollRes.data as Record<string, unknown>;
+        const statusId = (data.status as { id?: number } | undefined)?.id ?? 0;
+
+        if (!PENDING_STATUS_IDS.has(statusId)) {
+          result = data;
+          break;
+        }
+      }
+
+      // Still pending after max attempts → treat as timeout
+      if (!result) {
+        res.status(504).json({ error: 'Code execution timed out. Try a simpler program or reduce its runtime.' });
+        return;
+      }
+
+      // ── Step 3: Parse and respond ─────────────────────────────
+      const lim = EXECUTION_LIMITS.maxOutputSize;
+      const stdout        = decode(result.stdout as string,         lim);
+      const stderr        = decode(result.stderr as string,         lim);
+      const compileOutput = decode(result.compile_output as string, lim);
+      const statusDesc    = (result.status as { description?: string } | undefined)?.description ?? 'Unknown';
+      const statusId      = (result.status as { id?: number } | undefined)?.id ?? 0;
+      const execTime      = result.time   ? `${result.time}s`   : '';
+      const execMemory    = result.memory ? `${result.memory} KB` : '';
+
+      // Persist to codeState (non-blocking — don't await in the hot path)
+      prisma.codeState.upsert({
+        where:  { sessionId },
+        update: {
+          lastExecStatus: statusDesc,
+          lastExecOutput: stdout || compileOutput,
+          lastExecStderr: stderr,
+          lastExecTime:   execTime,
+          lastExecMemory: execMemory,
+          lastExecAt:     new Date(),
+        },
+        create: {
+          sessionId,
+          code,
+          language,
+          lastExecStatus: statusDesc,
+          lastExecOutput: stdout || compileOutput,
+          lastExecStderr: stderr,
+          lastExecTime:   execTime,
+          lastExecMemory: execMemory,
+          lastExecAt:     new Date(),
+        },
+      }).catch(dbErr => console.error('[Execute] DB persist error:', dbErr));
+
       res.json({
-        status: statusDesc,
-        statusId: result.status?.id,
+        status:        statusDesc,
+        statusId,
         stdout,
         stderr,
         compileOutput,
-        time: execTime,
-        memory: execMemory,
+        time:          execTime,
+        memory:        execMemory,
       });
+
     } catch (err: unknown) {
-      const error = err as Error & { response?: { status?: number } };
+      const error = err as Error & { response?: { status?: number }; code?: string };
       console.error('[Execute] Judge0 error:', error.message);
 
       if (axios.isAxiosError(error)) {
@@ -171,7 +203,7 @@ executeRouter.post(
           return;
         }
         if (error.response?.status === 429) {
-          res.status(429).json({ error: 'Execution rate limit exceeded' });
+          res.status(429).json({ error: 'Execution rate limit exceeded. Please wait a moment.' });
           return;
         }
         if (error.response?.status === 401) {
