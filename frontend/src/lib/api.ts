@@ -97,16 +97,47 @@ export async function saveCode(
 
 // ── Code execution ────────────────────────────────────────────
 
+// Execution can take up to ~30 s on the free Judge0 tier (queue wait + run time).
+// We use an AbortController so the browser doesn't hang indefinitely if the
+// backend is unreachable or Railway times out the request.
+const EXECUTE_TIMEOUT_MS = 35_000; // 35 s — slightly over Railway's 30 s response budget
+
 export async function executeCode(
   sessionId: string,
   code: string,
   language: Language,
   stdin = ''
 ): Promise<ExecutionResult> {
-  return apiFetch<ExecutionResult>(`/api/execute/${sessionId}`, {
-    method: 'POST',
-    body: JSON.stringify({ code, language, stdin }),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), EXECUTE_TIMEOUT_MS);
+
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_URL}/api/execute/${sessionId}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ code, language, stdin }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      let errMsg = `API error ${res.status}`;
+      try {
+        const body = await res.json();
+        errMsg = body.error || body.message || errMsg;
+      } catch {}
+      throw new Error(errMsg);
+    }
+
+    return res.json() as Promise<ExecutionResult>;
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Execution timed out. The server took too long to respond — please try again.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ── Chat messages ─────────────────────────────────────────────

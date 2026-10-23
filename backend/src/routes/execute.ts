@@ -27,9 +27,11 @@ const EXECUTION_LIMITS = {
 };
 
 // ── Polling config ────────────────────────────────────────────
-const POLL_INTERVAL_MS  = 800;   // wait 800ms between polls
-const POLL_MAX_ATTEMPTS = 15;    // max 15 polls = ~12s total before giving up
-// Judge0 status IDs that mean "still running"
+// Budget must stay well under Railway's 60 s platform HTTP timeout.
+// Submit (≤10 s) + 20 polls × (poll latency + 1 s sleep) ≈ 30–40 s worst case.
+const POLL_INTERVAL_MS  = 1000;  // 1 s between polls
+const POLL_MAX_ATTEMPTS = 20;    // max 20 polls → ~20 s sleep budget
+// Judge0 status IDs that mean "still running" — everything else is terminal
 const PENDING_STATUS_IDS = new Set([1, 2]); // 1 = In Queue, 2 = Processing
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -124,11 +126,10 @@ executeRouter.post(
       }
 
       // ── Step 2: Poll until done ───────────────────────────────
+      // Sleep AFTER the poll (not before) so the first check fires immediately.
       let result: Record<string, unknown> | null = null;
 
       for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
-        await sleep(POLL_INTERVAL_MS);
-
         const pollRes = await axios.get(
           `${judge0Url}/submissions/${token}?base64_encoded=true`,
           { headers, timeout: 8000 },
@@ -138,14 +139,18 @@ executeRouter.post(
         const statusId = (data.status as { id?: number } | undefined)?.id ?? 0;
 
         if (!PENDING_STATUS_IDS.has(statusId)) {
+          // Terminal status — return immediately, no extra sleep
           result = data;
           break;
         }
+
+        // Still pending — wait before next attempt
+        await sleep(POLL_INTERVAL_MS);
       }
 
-      // Still pending after max attempts → treat as timeout
+      // Still pending after max attempts → our polling budget exhausted
       if (!result) {
-        res.status(504).json({ error: 'Code execution timed out. Try a simpler program or reduce its runtime.' });
+        res.status(504).json({ error: 'Execution is taking longer than expected. The Judge0 queue may be busy — please try again in a moment.' });
         return;
       }
 
@@ -199,7 +204,7 @@ executeRouter.post(
 
       if (axios.isAxiosError(error)) {
         if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-          res.status(504).json({ error: 'Code execution timed out' });
+          res.status(504).json({ error: 'Could not reach the code execution service. Please try again.' });
           return;
         }
         if (error.response?.status === 429) {
